@@ -2,16 +2,16 @@
     "route_name": "Test Route",
     "planned_speed_kmh": 100,
     "auto_ato_enabled": true,
-    "default_auto_radius_m": 150,
-    "default_accuracy_limit_m": 75,
-    "auto_confirmation_seconds": 3,
+    "default_auto_radius_m": 300,
+    "default_accuracy_limit_m": 200,
+    "auto_confirmation_seconds": 2,
     "waypoints": [
         {
             "name": "NEAR GNSS FIX",
             "lat": 40.606783,
             "lon": -3.713760,
-            "note": "Test for auto ATC",
-            "auto_radius_m": 150
+            "note": "Test for auto ATO",
+            "auto_radius_m": 300
         },
         {
             "name": "START",
