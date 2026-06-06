@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RoadNav Prototype</title>
+
+    <!-- Leaflet CSS -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <div id="topbar">
+        <div>
+            <strong>RoadNav Prototype</strong>
+        </div>
+        <div id="status">Waiting for GNSS...</div>
+    </div>
+
+    <div id="main">
+        <div id="map"></div>
+
+        <div id="navpanel">
+            <h2>Navigation</h2>
+
+            <div class="data-row">
+                <span>Latitude</span>
+                <strong id="lat">---</strong>
+            </div>
+
+            <div class="data-row">
+                <span>Longitude</span>
+                <strong id="lon">---</strong>
+            </div>
+
+            <div class="data-row">
+                <span>Accuracy</span>
+                <strong id="accuracy">---</strong>
+            </div>
+
+            <div class="data-row">
+                <span>Speed</span>
+                <strong id="speed">---</strong>
+            </div>
+
+            <div class="data-row">
+                <span>Heading</span>
+                <strong id="heading">---</strong>
+            </div>
+
+            <button id="centerBtn">CENTER MAP</button>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+
+    <script src="app.js"></script>
+</body>
+</html>
