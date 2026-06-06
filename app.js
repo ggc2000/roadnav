@@ -7,9 +7,20 @@ let followPosition = true;
 let routeData = null;
 let routeLine = null;
 let waypointMarkers = [];
-let activeWpIndex = 1; 
-// activeWpIndex means: the next waypoint we are navigating to.
-// So if activeWpIndex = 1, current leg is waypoint 0 -> waypoint 1.
+let activeWpIndex = 1;
+
+// One status object per waypoint.
+// Example:
+// waypointStatus[2] = {
+//     checked: true,
+//     ato: Date object,
+//     method: "auto" or "manual"
+// };
+let waypointStatus = [];
+
+// Automatic ATO confirmation state
+let autoAtoCandidateIndex = null;
+let autoAtoCandidateStartTime = null;
 
 // Initial map position: Madrid-ish fallback
 const INITIAL_LAT = 40.4168;
@@ -81,6 +92,8 @@ function handlePosition(position) {
 
     updateMap(lat, lon, accuracy);
     updateGNSSPanel(lat, lon, accuracy, speed, heading);
+
+    checkAutomaticATO();
     updateRoutePanel();
 
     document.getElementById("status").textContent = "GNSS active";
@@ -147,6 +160,7 @@ async function loadRoute() {
 
         routeData = await response.json();
 
+        initialiseWaypointStatus();
         drawRoute();
         updateRoutePanel();
 
@@ -155,6 +169,23 @@ async function loadRoute() {
         console.error(error);
         document.getElementById("status").textContent = "Route loading error";
     }
+}
+
+function initialiseWaypointStatus() {
+    waypointStatus = routeData.waypoints.map(() => {
+        return {
+            checked: false,
+            ato: null,
+            method: null
+        };
+    });
+
+    // We normally start navigating TO waypoint 1.
+    // Waypoint 0 is the route origin.
+    activeWpIndex = 1;
+
+    // Optional: mark START as already checked at load time.
+    // For now we leave it unchecked, because later we may want a START ROUTE button.
 }
 
 function drawRoute() {
@@ -192,12 +223,7 @@ function drawRoute() {
 
 function updateRoutePanel() {
     if (!routeData || !routeData.waypoints || routeData.waypoints.length < 2) {
-        document.getElementById("routeName").textContent = "---";
-        document.getElementById("currentLeg").textContent = "---";
-        document.getElementById("nextPoint").textContent = "---";
-        document.getElementById("distNext").textContent = "---";
-        document.getElementById("etoNext").textContent = "---";
-        document.getElementById("wpNote").textContent = "---";
+        setRoutePanelEmpty();
         return;
     }
 
@@ -213,11 +239,22 @@ function updateRoutePanel() {
 
     const previousWp = waypoints[activeWpIndex - 1];
     const nextWp = waypoints[activeWpIndex];
+    const nextStatus = waypointStatus[activeWpIndex];
 
     document.getElementById("routeName").textContent = routeData.route_name || "---";
     document.getElementById("currentLeg").textContent = `${previousWp.name} → ${nextWp.name}`;
     document.getElementById("nextPoint").textContent = nextWp.name;
     document.getElementById("wpNote").textContent = nextWp.note || "---";
+
+    if (nextStatus && nextStatus.checked && nextStatus.ato) {
+        document.getElementById("atoNext").textContent = formatTime(nextStatus.ato);
+        document.getElementById("atoMethod").textContent = nextStatus.method.toUpperCase();
+    } else {
+        document.getElementById("atoNext").textContent = "---";
+        document.getElementById("atoMethod").textContent = "---";
+    }
+
+    updateAutoAtoStatusText();
 
     if (lastPosition) {
         const distKm = distanceKm(
@@ -243,6 +280,18 @@ function updateRoutePanel() {
     }
 }
 
+function setRoutePanelEmpty() {
+    document.getElementById("routeName").textContent = "---";
+    document.getElementById("currentLeg").textContent = "---";
+    document.getElementById("nextPoint").textContent = "---";
+    document.getElementById("distNext").textContent = "---";
+    document.getElementById("etoNext").textContent = "---";
+    document.getElementById("atoNext").textContent = "---";
+    document.getElementById("atoMethod").textContent = "---";
+    document.getElementById("autoAtoStatus").textContent = "---";
+    document.getElementById("wpNote").textContent = "---";
+}
+
 function getNavigationSpeedKmh() {
     if (lastPosition && lastPosition.speed !== null && lastPosition.speed > 1) {
         return lastPosition.speed * 3.6;
@@ -260,6 +309,146 @@ function calculateETO(distanceKm, speedKmh) {
     const milliseconds = hours * 60 * 60 * 1000;
 
     return new Date(Date.now() + milliseconds);
+}
+
+function checkAutomaticATO() {
+    if (!routeData || !lastPosition) {
+        resetAutoAtoCandidate();
+        return;
+    }
+
+    if (routeData.auto_ato_enabled === false) {
+        resetAutoAtoCandidate();
+        return;
+    }
+
+    const waypoints = routeData.waypoints;
+
+    if (activeWpIndex < 1 || activeWpIndex >= waypoints.length) {
+        resetAutoAtoCandidate();
+        return;
+    }
+
+    const nextStatus = waypointStatus[activeWpIndex];
+
+    if (nextStatus && nextStatus.checked) {
+        resetAutoAtoCandidate();
+        return;
+    }
+
+    const nextWp = waypoints[activeWpIndex];
+
+    const distanceM = distanceKm(
+        lastPosition.lat,
+        lastPosition.lon,
+        nextWp.lat,
+        nextWp.lon
+    ) * 1000;
+
+    const radiusM = nextWp.auto_radius_m ||
+        routeData.default_auto_radius_m ||
+        150;
+
+    const accuracyLimitM =
+        routeData.default_accuracy_limit_m ||
+        75;
+
+    const confirmationSeconds =
+        routeData.auto_confirmation_seconds ||
+        3;
+
+    const gnssGood = lastPosition.accuracy <= accuracyLimitM;
+    const insideZone = distanceM <= radiusM;
+
+    if (!gnssGood || !insideZone) {
+        resetAutoAtoCandidate();
+        return;
+    }
+
+    const now = Date.now();
+
+    if (autoAtoCandidateIndex !== activeWpIndex) {
+        autoAtoCandidateIndex = activeWpIndex;
+        autoAtoCandidateStartTime = now;
+        return;
+    }
+
+    const elapsedSeconds = (now - autoAtoCandidateStartTime) / 1000;
+
+    if (elapsedSeconds >= confirmationSeconds) {
+        recordATO("auto");
+        resetAutoAtoCandidate();
+    }
+}
+
+function updateAutoAtoStatusText() {
+    const el = document.getElementById("autoAtoStatus");
+
+    if (!routeData || !lastPosition) {
+        el.textContent = "---";
+        return;
+    }
+
+    if (routeData.auto_ato_enabled === false) {
+        el.textContent = "OFF";
+        return;
+    }
+
+    if (autoAtoCandidateIndex === activeWpIndex && autoAtoCandidateStartTime !== null) {
+        const confirmationSeconds =
+            routeData.auto_confirmation_seconds ||
+            3;
+
+        const elapsedSeconds = (Date.now() - autoAtoCandidateStartTime) / 1000;
+        const remainingSeconds = Math.max(0, confirmationSeconds - elapsedSeconds);
+
+        el.textContent = `CONFIRMING ${remainingSeconds.toFixed(1)}s`;
+        return;
+    }
+
+    el.textContent = "ARMED";
+}
+
+function resetAutoAtoCandidate() {
+    autoAtoCandidateIndex = null;
+    autoAtoCandidateStartTime = null;
+}
+
+function recordATO(method) {
+    if (!routeData || !routeData.waypoints) {
+        return;
+    }
+
+    if (activeWpIndex < 1 || activeWpIndex >= routeData.waypoints.length) {
+        return;
+    }
+
+    const status = waypointStatus[activeWpIndex];
+
+    if (status.checked) {
+        return;
+    }
+
+    status.checked = true;
+    status.ato = new Date();
+    status.method = method;
+
+    const wpName = routeData.waypoints[activeWpIndex].name;
+    document.getElementById("status").textContent =
+        `${wpName} ATO recorded (${method.toUpperCase()})`;
+
+    advanceToNextWaypoint();
+    updateRoutePanel();
+}
+
+function advanceToNextWaypoint() {
+    if (!routeData || !routeData.waypoints) {
+        return;
+    }
+
+    if (activeWpIndex < routeData.waypoints.length - 1) {
+        activeWpIndex++;
+    }
 }
 
 function formatTime(date) {
@@ -311,6 +500,7 @@ document.getElementById("prevWpBtn").addEventListener("click", () => {
         activeWpIndex = 1;
     }
 
+    resetAutoAtoCandidate();
     updateRoutePanel();
 });
 
@@ -325,7 +515,12 @@ document.getElementById("nextWpBtn").addEventListener("click", () => {
         activeWpIndex = routeData.waypoints.length - 1;
     }
 
+    resetAutoAtoCandidate();
     updateRoutePanel();
+});
+
+document.getElementById("markAtoBtn").addEventListener("click", () => {
+    recordATO("manual");
 });
 
 initMap();
