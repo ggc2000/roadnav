@@ -77,3 +77,18 @@ button {
 button:active {
     background: #007744;
 }
+
+hr {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 20px 0;
+}
+
+.button-row {
+    display: flex;
+    gap: 8px;
+}
+
+.button-row button {
+    flex: 1;
+}
