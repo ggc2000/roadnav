@@ -1,30 +1,45 @@
 {
     "route_name": "Test Route",
     "planned_speed_kmh": 100,
+    "auto_ato_enabled": true,
+    "default_auto_radius_m": 150,
+    "default_accuracy_limit_m": 75,
+    "auto_confirmation_seconds": 3,
     "waypoints": [
+        {
+            "name": "NEAR GNSS FIX",
+            "lat": 40.606783,
+            "lon": -3.713760,
+            "note": "Test for auto ATC",
+            "auto_radius_m": 150
+        },
         {
             "name": "START",
             "lat": 40.4168,
             "lon": -3.7038,
-            "note": "Route start"
+            "note": "Route start",
+            "auto_radius_m": 150
         },
         {
             "name": "WP1",
             "lat": 40.5000,
             "lon": -3.6500,
-            "note": "First checkpoint"
+            "note": "First checkpoint",
+            "auto_radius_m": 150
         },
         {
             "name": "WP2",
             "lat": 40.6000,
             "lon": -3.5000,
-            "note": "Second checkpoint"
+            "note": "Second checkpoint",
+            "auto_radius_m": 150
         },
         {
             "name": "DEST",
             "lat": 40.7000,
             "lon": -3.4000,
-            "note": "Destination"
+            "note": "Destination",
+            "auto_radius_m": 200
         }
     ]
 }
