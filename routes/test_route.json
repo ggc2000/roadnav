@@ -1,0 +1,30 @@
+{
+    "route_name": "Test Route",
+    "planned_speed_kmh": 100,
+    "waypoints": [
+        {
+            "name": "START",
+            "lat": 40.4168,
+            "lon": -3.7038,
+            "note": "Route start"
+        },
+        {
+            "name": "WP1",
+            "lat": 40.5000,
+            "lon": -3.6500,
+            "note": "First checkpoint"
+        },
+        {
+            "name": "WP2",
+            "lat": 40.6000,
+            "lon": -3.5000,
+            "note": "Second checkpoint"
+        },
+        {
+            "name": "DEST",
+            "lat": 40.7000,
+            "lon": -3.4000,
+            "note": "Destination"
+        }
+    ]
+}
